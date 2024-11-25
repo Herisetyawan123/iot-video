@@ -2,6 +2,9 @@ from flask import Flask, Response
 import cv2
 import numpy as np
 import tflite_runtime.interpreter as tflite
+import RPi.GPIO as GPIO
+import time
+from threading import Thread
 
 # Load model TensorFlow Lite
 tflite_model_path = "model_deteksi_penyakit_ayam.tflite"  # Path ke model TFLite Anda
@@ -57,9 +60,36 @@ def detect_head(frame):
     return None
 
 
+# Set up GPIO for servo motor
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(11, GPIO.OUT)
+servo1 = GPIO.PWM(11, 50)  # Pin 11, 50Hz pulse
+servo1.start(0)
+
+
+def move_servo(direction):
+    if direction == "forward":
+        print("Moving forward")
+        # duty = 2
+        servo1.ChangeDutyCycle(12)
+        # while duty <= 12:
+        #     time.sleep(1)
+        #     duty = duty + 1
+    elif direction == "backward":
+        print("Moving backward")
+        # duty = 12
+        servo1.ChangeDutyCycle(2)
+        # while duty >= 2:
+        #     time.sleep(1)
+        #     duty = duty - 1
+    else:
+        print("Stopping")
+        servo1.ChangeDutyCycle(0)
+        time.sleep(0.5)
+
+
 # Flask app
 app = Flask(__name__)
-
 
 def generate_frames():
     cap = cv2.VideoCapture(0)  # Ubah dengan sumber kamera Anda
@@ -113,6 +143,14 @@ def video_feed():
     )
 
 
+@app.route("/move_servo/<direction>")
+def move_servo_endpoint(direction):
+    # Menjalankan gerakan servo di thread terpisah
+    thread = Thread(target=move_servo, args=(direction,))
+    thread.start()
+    return f"Servo moving {direction}"
+
+
 @app.route("/")
 def index():
     return """
@@ -123,6 +161,9 @@ def index():
         <body>
             <h1>Deteksi Ayam</h1>
             <img src="/video_feed" width="640" height="480">
+            <br>
+            <button onclick="window.location.href='/move_servo/forward'">Move Forward</button>
+            <button onclick="window.location.href='/move_servo/backward'">Move Backward</button>
         </body>
     </html>
     """
@@ -130,3 +171,4 @@ def index():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
+
