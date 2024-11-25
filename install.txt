@@ -1,0 +1,11 @@
+install:
+
+pip install opencv-python-headless
+pip install tflite-runtime
+
+pip uninstall numpy
+
+pip install "numpy<2.0"
+
+pip install flask
+pip install RPi.GPIO
